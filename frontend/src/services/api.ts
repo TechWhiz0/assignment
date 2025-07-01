@@ -1,5 +1,5 @@
 
-const API_BASE_URL = 'http://localhost:3001/api'
+const API_BASE_URL = 'https://assignment-cmit.onrender.com'
 
 export const apiService = {
   async getMoods() {
