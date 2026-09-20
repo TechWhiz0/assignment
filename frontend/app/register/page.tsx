@@ -2,32 +2,25 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { api, type ApiError } from "@/lib/api";
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    api
-      .me()
-      .then(() => router.replace("/kits"))
-      .catch(() => undefined);
-  }, [router]);
-
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError("");
     try {
-      await api.login(email, password);
+      await api.register(email, password);
       router.push("/kits");
     } catch (err) {
-      setError((err as ApiError).message || "Could not sign in");
+      setError((err as ApiError).message || "Could not register");
     } finally {
       setBusy(false);
     }
@@ -35,29 +28,23 @@ export default function LoginPage() {
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-4 py-10">
-      <p className="text-sm font-semibold uppercase tracking-widest text-primary">Interview prep</p>
-      <h1 className="mt-2 text-4xl font-extrabold tracking-tight">Prep Kit</h1>
-      <p className="mt-3 text-slate-600">
-        Paste a job description. We research the company and build a kit you can edit.
-      </p>
-      <form onSubmit={onSubmit} className="mt-8 space-y-4 rounded-lg border-2 border-border bg-card p-5">
+      <h1 className="text-3xl font-extrabold">Create account</h1>
+      <form onSubmit={onSubmit} className="mt-6 space-y-4 rounded-lg border-2 border-border bg-card p-5">
         <label className="block text-sm font-semibold">
           Email
           <input
             className="mt-1 min-h-11 w-full rounded-md border-2 border-border bg-background px-3"
             type="email"
-            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
         </label>
         <label className="block text-sm font-semibold">
-          Password
+          Password (8+ characters)
           <input
             className="mt-1 min-h-11 w-full rounded-md border-2 border-border bg-background px-3"
             type="password"
-            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
@@ -72,17 +59,14 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={busy}
-          className="min-h-11 w-full cursor-pointer rounded-md bg-accent font-bold text-white hover:opacity-90 disabled:opacity-50"
+          className="min-h-11 w-full cursor-pointer rounded-md bg-primary font-bold text-white disabled:opacity-50"
         >
-          {busy ? "Signing in…" : "Sign in"}
+          {busy ? "Creating…" : "Register"}
         </button>
       </form>
-      <p className="mt-4 text-sm">
-        No account?{" "}
-        <Link href="/register" className="font-semibold text-primary underline">
-          Register
-        </Link>
-      </p>
+      <Link href="/" className="mt-4 text-sm font-semibold underline">
+        Back to sign in
+      </Link>
     </div>
   );
 }
