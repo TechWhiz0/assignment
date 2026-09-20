@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Shell } from "@/components/Shell";
@@ -74,6 +75,14 @@ export default function KitPage() {
           <h1 className="text-3xl font-extrabold">{rec.kit?.role.title || "Generating kit"}</h1>
           <p className="text-slate-600">{rec.input.company_url}</p>
         </div>
+        {rec.kit ? (
+          <Link
+            href={`/kits/${id}/practice`}
+            className="min-h-11 rounded-md bg-primary px-4 py-2 font-bold text-white"
+          >
+            Practice
+          </Link>
+        ) : null}
       </div>
 
       {running ? <Progress steps={rec.steps} /> : null}
