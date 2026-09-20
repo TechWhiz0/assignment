@@ -27,13 +27,20 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-4 py-10">
-      <h1 className="text-3xl font-extrabold">Create account</h1>
-      <form onSubmit={onSubmit} className="mt-6 space-y-4 rounded-lg border-2 border-border bg-card p-5">
+    <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-4 py-12">
+      <div className="mb-8 flex items-center gap-2.5">
+        <span className="mark" aria-hidden />
+        <span className="font-semibold">Prep Kit</span>
+      </div>
+      <p className="eyebrow">Get started</p>
+      <h1 className="font-display mt-2 text-4xl">Create account</h1>
+      <p className="mt-2 text-[var(--muted)]">Your kits stay private to this email.</p>
+
+      <form onSubmit={onSubmit} className="panel mt-8 space-y-4 p-6">
         <label className="block text-sm font-semibold">
           Email
           <input
-            className="mt-1 min-h-11 w-full rounded-md border-2 border-border bg-background px-3"
+            className="field"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -43,7 +50,7 @@ export default function RegisterPage() {
         <label className="block text-sm font-semibold">
           Password (8+ characters)
           <input
-            className="mt-1 min-h-11 w-full rounded-md border-2 border-border bg-background px-3"
+            className="field"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -52,19 +59,15 @@ export default function RegisterPage() {
           />
         </label>
         {error ? (
-          <p className="text-sm text-red-600" role="alert">
+          <p className="rounded-[var(--radius-sm)] bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]" role="alert">
             {error}
           </p>
         ) : null}
-        <button
-          type="submit"
-          disabled={busy}
-          className="min-h-11 w-full cursor-pointer rounded-md bg-primary font-bold text-white disabled:opacity-50"
-        >
-          {busy ? "Creating…" : "Register"}
+        <button type="submit" disabled={busy} className="btn btn-solid w-full">
+          {busy ? "Creating…" : "Create account"}
         </button>
       </form>
-      <Link href="/" className="mt-4 text-sm font-semibold underline">
+      <Link href="/" className="mt-5 text-sm font-semibold underline underline-offset-4">
         Back to sign in
       </Link>
     </div>

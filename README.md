@@ -9,7 +9,7 @@ Turns a pasted job description and a company website into a personalised intervi
 | Frontend | Next.js (App Router) + Tailwind CSS | Preferred in the brief; fast UI for builder/practice |
 | Backend | Node.js + Express + TypeScript | Preferred; clear separation of pipeline vs HTTP |
 | Database | MongoDB | Preferred; flexible kit documents + session store |
-| LLM | Google Gemini (`gemini-2.0-flash`) free tier | Free tier; JSON mode; rate-limit handling in our client |
+| LLM | Google Gemini (`gemini-flash-latest`) free tier | Free tier; JSON mode; rate-limit handling in our client |
 | Scraping | `fetch` + Cheerio + robots-parser | JS-only (brief: TypeScript/JS only); works for local evaluate fixtures without browsers |
 
 Frontend and backend are separate apps so they deploy independently (Vercel + Render).
@@ -51,7 +51,7 @@ npm --prefix frontend run dev   # :3000
 | `MONGODB_URI` | Mongo connection string |
 | `SESSION_SECRET` | Cookie session signing secret |
 | `GEMINI_API_KEY` | Google AI Studio key |
-| `GEMINI_MODEL` | Model id (default `gemini-2.0-flash`) |
+| `GEMINI_MODEL` | Model id (default `gemini-flash-latest`) |
 | `FRONTEND_ORIGIN` | CORS + cookie origin (e.g. `http://localhost:3000`) |
 | `ALLOW_LOCAL_URLS` | Set `1` only for evaluate against localhost fixtures; omit/0 in production |
 | `NODE_ENV` | `production` enables secure cross-site cookies |

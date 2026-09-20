@@ -52,12 +52,14 @@ export default function PracticePage() {
     setIdx((i) => (i + 1) % Math.max(1, order.length));
   }
 
-  if (!rec?.kit) return <div className="p-8">Loading practice…</div>;
+  if (!rec?.kit) {
+    return <div className="flex min-h-dvh items-center justify-center text-[var(--muted)]">Loading practice…</div>;
+  }
   if (!card) {
     return (
       <Shell email={email}>
-        <p>This kit has no flashcards yet.</p>
-        <Link href={`/kits/${id}`} className="underline">
+        <p className="font-display text-2xl">No flashcards yet</p>
+        <Link href={`/kits/${id}`} className="mt-3 inline-block font-semibold underline underline-offset-4">
           Back to kit
         </Link>
       </Shell>
@@ -66,19 +68,20 @@ export default function PracticePage() {
 
   return (
     <Shell email={email}>
-      <Link href={`/kits/${id}`} className="text-sm font-semibold underline">
+      <Link href={`/kits/${id}`} className="text-sm font-semibold text-[var(--muted)] underline underline-offset-4">
         Back to kit
       </Link>
-      <h1 className="mt-2 text-3xl font-extrabold">Practice</h1>
-      <p className="text-slate-600">
+      <p className="eyebrow mt-4">Flashcards</p>
+      <h1 className="font-display mt-1 text-4xl">Practice</h1>
+      <p className="mt-1 text-[var(--muted)]">
         {seen} of {order.length} cards seen. Next card is least confident / unseen.
       </p>
 
       {weak.length ? (
-        <aside className="mt-4 rounded-lg border-2 border-accent bg-card p-4">
-          <h2 className="font-extrabold text-accent">Weak spots</h2>
-          <p className="text-sm text-slate-600">Cards you marked 1–2. Spend tomorrow here first.</p>
-          <ul className="mt-2 list-disc pl-5 text-sm">
+        <aside className="panel mt-5 border-[color-mix(in_oklab,var(--accent)_35%,var(--line))] p-5">
+          <h2 className="font-display text-xl text-[var(--accent)]">Weak spots</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">Cards you marked 1–2. Spend tomorrow here first.</p>
+          <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
             {weak.slice(0, 8).map((c) => (
               <li key={c.id}>{c.front}</li>
             ))}
@@ -86,31 +89,22 @@ export default function PracticePage() {
         </aside>
       ) : null}
 
-      <article className="mt-6 rounded-lg border-2 border-border bg-card p-6">
-        <p className="text-xs uppercase tracking-wide text-slate-500">Card {idx + 1}</p>
-        <p className="mt-2 text-xl font-bold">{card.front}</p>
+      <article className="panel mt-6 p-7">
+        <p className="eyebrow">Card {idx + 1}</p>
+        <p className="font-display mt-3 text-3xl">{card.front}</p>
         {show ? (
-          <p className="mt-4 border-t-2 border-border pt-4">{card.back || "No outline yet."}</p>
+          <p className="mt-5 border-t border-[var(--line)] pt-5 text-[var(--ink)]">{card.back || "No outline yet."}</p>
         ) : (
-          <button
-            type="button"
-            className="mt-6 min-h-11 cursor-pointer rounded-md bg-primary px-4 font-bold text-white"
-            onClick={() => setShow(true)}
-          >
+          <button type="button" className="btn btn-solid mt-8" onClick={() => setShow(true)}>
             Reveal answer
           </button>
         )}
         {show ? (
           <div className="mt-6">
             <p className="text-sm font-semibold">How confident?</p>
-            <div className="mt-2 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
               {[1, 2, 3, 4, 5].map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  className="min-h-11 min-w-11 cursor-pointer rounded-md border-2 border-border bg-background font-bold hover:border-primary"
-                  onClick={() => rate(n)}
-                >
+                <button key={n} type="button" className="btn btn-ghost !min-w-11 !px-0" onClick={() => rate(n)}>
                   {n}
                 </button>
               ))}
@@ -119,16 +113,16 @@ export default function PracticePage() {
         ) : null}
       </article>
 
-      <section className="mt-8">
-        <h2 className="text-xl font-extrabold">Schedule</h2>
-        <p className="text-sm text-slate-600">Your day-by-day plan from this kit.</p>
-        <ul className="mt-3 space-y-2">
+      <section className="mt-10">
+        <h2 className="font-display text-2xl">Schedule</h2>
+        <p className="text-sm text-[var(--muted)]">Your day-by-day plan from this kit.</p>
+        <ul className="mt-4 space-y-2">
           {rec.kit.schedule.days.map((d) => (
-            <li key={d.day} className="rounded-lg border-2 border-border bg-card p-3">
+            <li key={d.day} className="panel p-4">
               <strong>
                 Day {d.day} · {d.minutes} min
               </strong>
-              <p>{d.focus}</p>
+              <p className="text-[var(--muted)]">{d.focus}</p>
             </li>
           ))}
         </ul>

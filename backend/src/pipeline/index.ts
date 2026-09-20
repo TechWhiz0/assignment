@@ -15,7 +15,7 @@ export type ProgressFn = (
   step: string,
   status: "running" | "done" | "skipped" | "error",
   detail?: string,
-) => void;
+) => void | Promise<void>;
 
 export async function generateKit(
   input: { jd: string; company_url: string; days: number },
@@ -24,11 +24,11 @@ export async function generateKit(
   const jd = input.jd || "";
   const days = Math.max(1, Math.floor(input.days || 1));
 
-  onProgress("extract", "running");
+  await onProgress("extract", "running");
   const role = await extractRole(jd);
-  onProgress("extract", "done", `${role.requirements.length} requirements`);
+  await onProgress("extract", "done", `${role.requirements.length} requirements`);
 
-  onProgress("crawl", "running");
+  await onProgress("crawl", "running");
   let crawl: Awaited<ReturnType<typeof crawlCompany>> = {
     pages: [],
     skipped: [],
@@ -37,7 +37,7 @@ export async function generateKit(
   };
   try {
     crawl = await crawlCompany(input.company_url);
-    onProgress(
+    await onProgress(
       "crawl",
       crawl.pages.length ? "done" : "skipped",
       crawl.pages.length ? `${crawl.pages.length} pages` : crawl.skipped[0]?.reason || "no pages",
@@ -45,27 +45,27 @@ export async function generateKit(
   } catch (err) {
     const msg = err instanceof Error ? err.message : "crawl failed";
     crawl.skipped.push({ url: input.company_url, reason: msg });
-    onProgress("crawl", "skipped", msg);
+    await onProgress("crawl", "skipped", msg);
   }
 
   const companyName = role.company || hostnameOf(input.company_url);
-  onProgress("discuss", "running");
+  await onProgress("discuss", "running");
   const discussion = await findDiscussion(companyName);
-  onProgress(
+  await onProgress(
     "discuss",
     discussion.length ? "done" : "skipped",
     discussion.length ? `${discussion.length} threads` : "none found",
   );
 
-  onProgress("brief", "running");
+  await onProgress("brief", "running");
   const brief = await generateBrief(companyName, crawl.pages, crawl.skipped);
-  onProgress("brief", "done");
+  await onProgress("brief", "done");
 
   const hiringText = crawl.hiring?.text || "";
   let questions: Question[] = [];
   const cats = ["technical", "behavioural", "system-design", "company-fit"] as const;
   for (const category of cats) {
-    onProgress(`questions:${category}`, "running");
+    await onProgress(`questions:${category}`, "running");
     const batch = await generateQuestions({
       category,
       jd,
@@ -75,13 +75,13 @@ export async function generateKit(
       start: questions.length + 1,
     });
     questions = questions.concat(batch);
-    onProgress(`questions:${category}`, batch.length ? "done" : "skipped", `${batch.length} questions`);
+    await onProgress(`questions:${category}`, batch.length ? "done" : "skipped", `${batch.length} questions`);
   }
 
   let passes = 1;
   let uncovered = uncoveredMustIds(role.requirements, questions);
   if (uncovered.length) {
-    onProgress("coverage_pass_2", "running", `gaps: ${uncovered.join(",")}`);
+    await onProgress("coverage_pass_2", "running", `gaps: ${uncovered.join(",")}`);
     const extra = await generateGapQuestions(
       role.requirements.filter((r) => uncovered.includes(r.id)),
       questions,
@@ -91,20 +91,20 @@ export async function generateKit(
     questions = questions.concat(extra);
     passes = 2;
     uncovered = uncoveredMustIds(role.requirements, questions);
-    onProgress(
+    await onProgress(
       "coverage_pass_2",
       "done",
       uncovered.length ? `still uncovered: ${uncovered.join(",")}` : "closed",
     );
   }
 
-  onProgress("flashcards", "running");
+  await onProgress("flashcards", "running");
   const flashcards = await generateFlashcards(role.requirements, questions);
-  onProgress("flashcards", "done", `${flashcards.length} cards`);
+  await onProgress("flashcards", "done", `${flashcards.length} cards`);
 
-  onProgress("schedule", "running");
+  await onProgress("schedule", "running");
   const schedule = allocateSchedule(questions, role.requirements, days);
-  onProgress("schedule", "done");
+  await onProgress("schedule", "done");
 
   const pagesUsed = [...crawl.pages.map((p) => p.url), ...discussion.map((d) => d.url)];
 

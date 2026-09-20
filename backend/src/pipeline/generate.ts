@@ -33,6 +33,90 @@ function nextId(prefix: string, n: number) {
   return `${prefix}${n}`;
 }
 
+/** Pull a questions array out of common model JSON shapes. */
+export function questionRows(data: unknown): Record<string, unknown>[] {
+  if (Array.isArray(data)) return data.filter((x) => x && typeof x === "object") as Record<string, unknown>[];
+  if (!data || typeof data !== "object") return [];
+  const o = data as Record<string, unknown>;
+  for (const key of ["questions", "items", "data"]) {
+    if (Array.isArray(o[key])) {
+      return (o[key] as unknown[]).filter((x) => x && typeof x === "object") as Record<string, unknown>[];
+    }
+  }
+  return [];
+}
+
+/** Map model requirement_ids onto real ids; fall back to pool musts when missing. */
+export function resolveRequirementIds(
+  raw: unknown,
+  pool: Requirement[],
+  fallback: Requirement[],
+): string[] {
+  const arr = Array.isArray(raw) ? raw : raw != null && raw !== "" ? [raw] : [];
+  const found: string[] = [];
+  for (const item of arr) {
+    const s = String(item).trim();
+    if (!s) continue;
+    if (pool.some((r) => r.id === s)) {
+      found.push(s);
+      continue;
+    }
+    const m = s.match(/\br?\s*(\d+)\b/i);
+    if (m) {
+      const id = `r${m[1]}`;
+      if (pool.some((r) => r.id === id)) {
+        found.push(id);
+        continue;
+      }
+    }
+    const byText = pool.find(
+      (r) => r.text === s || r.text.startsWith(s.slice(0, 48)) || s.includes(r.text.slice(0, 48)),
+    );
+    if (byText) found.push(byText.id);
+  }
+  const uniq = [...new Set(found)];
+  if (uniq.length) return uniq;
+  const fb = (fallback.length ? fallback : pool).slice(0, 2).map((r) => r.id);
+  return fb;
+}
+
+function toQuestions(
+  data: unknown,
+  opts: {
+    category: Question["category"];
+    requirements: Requirement[];
+    relevant: Requirement[];
+    start: number;
+    idPool?: Requirement[];
+  },
+): Question[] {
+  const pool = opts.idPool ?? opts.requirements;
+  const out: Question[] = [];
+  let i = opts.start;
+  for (const q of questionRows(data)) {
+    const prompt = String(q.prompt ?? q.question ?? q.text ?? "").trim();
+    if (!prompt) continue;
+    const ids = resolveRequirementIds(q.requirement_ids ?? q.requirements ?? q.requirementIds, pool, opts.relevant);
+    if (!ids.length) continue;
+    const rawCat = String(q.category || opts.category);
+    const cat = CATEGORY.includes(rawCat as (typeof CATEGORY)[number])
+      ? (rawCat as Question["category"])
+      : opts.category;
+    const diff = Number(q.difficulty);
+    out.push({
+      id: nextId("q", i++),
+      requirement_ids: ids,
+      category: cat,
+      prompt,
+      answer_outline: String(q.answer_outline ?? q.outline ?? q.answer ?? ""),
+      difficulty: diff >= 1 && diff <= 3 ? Math.floor(diff) : 2,
+      origin: "generated",
+      edited: false,
+    });
+  }
+  return out;
+}
+
 export async function generateQuestions(opts: {
   category: Question["category"];
   jd: string;
@@ -51,41 +135,39 @@ export async function generateQuestions(opts: {
   });
   if (!relevant.length && category !== "company-fit") return [];
 
-  const data = await generateJson<{ questions: Omit<Question, "id" | "origin" | "edited">[] }>(
-    `Generate interview questions for category "${category}". JSON:
+  const idList = relevant.map((r) => r.id).join(", ") || requirements.map((r) => r.id).join(", ");
+  const system = `Generate interview questions for category "${category}". JSON:
 {"questions":[{"requirement_ids":["r1"],"category":"${category}","prompt":"","answer_outline":"","difficulty":2}]}
 Rules:
-- Every question must reference requirement_ids that exist.
-- 2 to 5 questions. difficulty is 1, 2, or 3.
-- Use the hiring process if present: a take-home or system-design round should shape prompts.
-- Do not invent requirements. Company-fit questions may use company pages and public discussion; if those are empty, say the process is unpublished and keep questions generic to the posting.
-- category must be ${category}.`,
-    [
-      wrapUntrusted("JOB DESCRIPTION", jd.slice(0, 8000)),
-      wrapUntrusted("REQUIREMENTS", JSON.stringify(relevant)),
-      wrapUntrusted("HIRING PAGE", hiringText.slice(0, 6000) || "(none found)"),
-      wrapUntrusted("PUBLIC DISCUSSION", JSON.stringify(discussion).slice(0, 4000) || "(none found)"),
-    ].join("\n\n"),
-  );
+- Return 3 to 5 questions.
+- requirement_ids MUST be exact ids from this list only: ${idList}
+- difficulty is 1, 2, or 3. category must be "${category}".
+- Use the hiring process if present. Do not invent requirements.
+- Company-fit may use company pages and public discussion; if empty, keep questions generic to the posting.`;
 
-  const out: Question[] = [];
-  let i = start;
-  for (const q of data.questions ?? []) {
-    if (!q.prompt) continue;
-    const ids = (q.requirement_ids || []).filter((id) => requirements.some((r) => r.id === id));
-    if (!ids.length) continue;
-    const cat = CATEGORY.includes(q.category as (typeof CATEGORY)[number]) ? q.category : category;
-    const diff = Number(q.difficulty);
-    out.push({
-      id: nextId("q", i++),
-      requirement_ids: ids,
-      category: cat as Question["category"],
-      prompt: String(q.prompt),
-      answer_outline: String(q.answer_outline || ""),
-      difficulty: diff >= 1 && diff <= 3 ? Math.floor(diff) : 2,
-      origin: "generated",
-      edited: false,
-    });
+  const user = [
+    wrapUntrusted("JOB DESCRIPTION", jd.slice(0, 8000)),
+    wrapUntrusted("REQUIREMENTS", JSON.stringify(relevant.length ? relevant : requirements)),
+    wrapUntrusted("HIRING PAGE", hiringText.slice(0, 6000) || "(none found)"),
+    wrapUntrusted("PUBLIC DISCUSSION", JSON.stringify(discussion).slice(0, 4000) || "(none found)"),
+  ].join("\n\n");
+
+  let out = toQuestions(await generateJson(system, user), {
+    category,
+    requirements,
+    relevant: relevant.length ? relevant : requirements,
+    start,
+  });
+
+  // ponytail: one retry if the model returns empty/unusable rows; structured few-shot if still flaky
+  if (!out.length) {
+    out = toQuestions(
+      await generateJson(
+        system,
+        `${user}\n\nPrevious response had zero usable questions. Return exactly 3 objects in "questions" with requirement_ids from [${idList}] and non-empty prompt fields.`,
+      ),
+      { category, requirements, relevant: relevant.length ? relevant : requirements, start },
+    );
   }
   return out;
 }
@@ -97,43 +179,44 @@ export async function generateGapQuestions(
   start: number,
 ): Promise<Question[]> {
   if (!uncovered.length) return [];
-  const data = await generateJson<{ questions: Omit<Question, "id" | "origin" | "edited">[] }>(
-    `Generate one question per uncovered must-have requirement. JSON:
+  const idList = uncovered.map((r) => r.id).join(", ");
+  const system = `Generate one question per uncovered must-have requirement. JSON:
 {"questions":[{"requirement_ids":["r1"],"category":"technical","prompt":"","answer_outline":"","difficulty":2}]}
-Match category to the requirement kind (technical/domain → technical, behavioural → behavioural).`,
-    [
-      wrapUntrusted("UNCOVERED REQUIREMENTS", JSON.stringify(uncovered)),
-      wrapUntrusted("EXISTING QUESTION PROMPTS", existing.map((q) => q.prompt).join("\n")),
-      wrapUntrusted("JOB DESCRIPTION", jd.slice(0, 6000)),
-    ].join("\n\n"),
-  );
-  const out: Question[] = [];
-  let i = start;
-  for (const q of data.questions ?? []) {
-    const ids = (q.requirement_ids || []).filter((id) => uncovered.some((r) => r.id === id));
-    if (!ids.length || !q.prompt) continue;
-    const cat = CATEGORY.includes(q.category as (typeof CATEGORY)[number]) ? q.category : "technical";
-    out.push({
-      id: nextId("q", i++),
-      requirement_ids: ids,
-      category: cat as Question["category"],
-      prompt: String(q.prompt),
-      answer_outline: String(q.answer_outline || ""),
-      difficulty: [1, 2, 3].includes(Number(q.difficulty)) ? Math.floor(Number(q.difficulty)) : 2,
-      origin: "generated",
-      edited: false,
-    });
+requirement_ids MUST be exact ids from: ${idList}
+Match category to the requirement kind (technical/domain → technical, behavioural → behavioural).`;
+  const user = [
+    wrapUntrusted("UNCOVERED REQUIREMENTS", JSON.stringify(uncovered)),
+    wrapUntrusted("EXISTING QUESTION PROMPTS", existing.map((q) => q.prompt).join("\n")),
+    wrapUntrusted("JOB DESCRIPTION", jd.slice(0, 6000)),
+  ].join("\n\n");
+
+  let out = toQuestions(await generateJson(system, user), {
+    category: "technical",
+    requirements: uncovered,
+    relevant: uncovered,
+    start,
+    idPool: uncovered,
+  });
+  if (!out.length) {
+    out = toQuestions(
+      await generateJson(
+        system,
+        `${user}\n\nReturn one question per id in [${idList}], each with that id in requirement_ids.`,
+      ),
+      { category: "technical", requirements: uncovered, relevant: uncovered, start, idPool: uncovered },
+    );
   }
   return out;
 }
 
 export async function generateFlashcards(requirements: Requirement[], questions: Question[], start = 1) {
+  const musts = requirements.filter((r) => r.priority === "must");
   const data = await generateJson<{
     flashcards: { front: string; back: string; requirement_ids: string[] }[];
   }>(
     `Create short flashcards. JSON:
 {"flashcards":[{"front":"","back":"","requirement_ids":["r1"]}]}
-One card per must-have requirement, plus a few from harder questions. Front is the prompt, back is a brief answer.`,
+One card per must-have requirement (${musts.map((r) => r.id).join(", ") || "all musts"}), plus a few from harder questions. Front is the prompt, back is a brief answer. requirement_ids must be exact ids.`,
     JSON.stringify({
       requirements,
       questions: questions.map((q) => ({
@@ -145,15 +228,43 @@ One card per must-have requirement, plus a few from harder questions. Front is t
       })),
     }).slice(0, 16_000),
   );
+
+  const rows = Array.isArray(data)
+    ? data
+    : Array.isArray((data as { flashcards?: unknown }).flashcards)
+      ? (data as { flashcards: { front: string; back: string; requirement_ids: string[] }[] }).flashcards
+      : [];
+
   let i = start;
-  return (data.flashcards ?? [])
-    .filter((f) => f.front)
-    .map((f) => ({
+  let cards = rows
+    .map((f) => {
+      const front = String((f as { front?: string; prompt?: string }).front ?? (f as { prompt?: string }).prompt ?? "").trim();
+      if (!front) return null;
+      return {
+        id: nextId("f", i++),
+        front,
+        back: String((f as { back?: string; answer?: string }).back ?? (f as { answer?: string }).answer ?? ""),
+        requirement_ids: resolveRequirementIds(
+          (f as { requirement_ids?: unknown }).requirement_ids,
+          requirements,
+          musts,
+        ),
+        origin: "generated" as const,
+        edited: false,
+      };
+    })
+    .filter((x): x is NonNullable<typeof x> => !!x);
+
+  // guarantee one card per uncovered must when the model returns nothing useful
+  if (!cards.length && musts.length) {
+    cards = musts.map((r) => ({
       id: nextId("f", i++),
-      front: String(f.front),
-      back: String(f.back || ""),
-      requirement_ids: (f.requirement_ids || []).filter((id) => requirements.some((r) => r.id === id)),
+      front: r.text,
+      back: "Recall concrete evidence from your experience for this requirement.",
+      requirement_ids: [r.id],
       origin: "generated" as const,
       edited: false,
     }));
+  }
+  return cards;
 }

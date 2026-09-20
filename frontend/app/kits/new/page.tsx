@@ -49,60 +49,63 @@ export default function NewKitPage() {
 
   return (
     <Shell email={email}>
-      <h1 className="text-3xl font-extrabold">Create a kit</h1>
-      <p className="mt-1 text-slate-600">
-        Paste one posting, or upload a JSON list to prepare for several roles.
+      <p className="eyebrow">Create</p>
+      <h1 className="font-display mt-1 text-4xl">New prep kit</h1>
+      <p className="mt-2 max-w-2xl text-[var(--muted)]">
+        Paste one posting, or upload a JSON list to prepare for several roles at once.
       </p>
-      <form onSubmit={onSubmit} className="mt-6 space-y-4 rounded-lg border-2 border-border bg-card p-5">
+
+      <form onSubmit={onSubmit} className="panel mt-8 space-y-5 p-6">
         <label className="block text-sm font-semibold">
           Job description
           <textarea
-            className="mt-1 min-h-40 w-full rounded-md border-2 border-border bg-background px-3 py-2"
+            className="field min-h-44"
             value={jd}
             onChange={(e) => setJd(e.target.value)}
+            placeholder="Paste the full job description…"
             required
           />
         </label>
-        <label className="block text-sm font-semibold">
-          Company website
-          <input
-            className="mt-1 min-h-11 w-full rounded-md border-2 border-border bg-background px-3"
-            type="url"
-            placeholder="https://company.com"
-            value={company_url}
-            onChange={(e) => setUrl(e.target.value)}
-            required
-          />
-        </label>
-        <label className="block text-sm font-semibold">
-          Days until interview
-          <input
-            className="mt-1 min-h-11 w-28 rounded-md border-2 border-border bg-background px-3"
-            type="number"
-            min={1}
-            max={60}
-            value={days}
-            onChange={(e) => setDays(Number(e.target.value))}
-            required
-          />
-        </label>
+        <div className="grid gap-5 sm:grid-cols-[1fr_8rem]">
+          <label className="block text-sm font-semibold">
+            Company website
+            <input
+              className="field"
+              type="url"
+              placeholder="https://company.com"
+              value={company_url}
+              onChange={(e) => setUrl(e.target.value)}
+              required
+            />
+          </label>
+          <label className="block text-sm font-semibold">
+            Days
+            <input
+              className="field"
+              type="number"
+              min={1}
+              max={60}
+              value={days}
+              onChange={(e) => setDays(Number(e.target.value))}
+              required
+            />
+          </label>
+        </div>
         {error ? (
-          <p className="text-sm text-red-600" role="alert">
+          <p className="rounded-[var(--radius-sm)] bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]" role="alert">
             {error}
           </p>
         ) : null}
-        <button
-          type="submit"
-          disabled={busy}
-          className="min-h-11 cursor-pointer rounded-md bg-accent px-5 font-bold text-white disabled:opacity-50"
-        >
+        <button type="submit" disabled={busy} className="btn btn-solid">
           {busy ? "Starting…" : "Generate kit"}
         </button>
       </form>
-      <label className="mt-6 block text-sm font-semibold">
-        Or upload several roles (JSON array)
+
+      <div className="panel mt-6 p-5">
+        <p className="text-sm font-semibold">Or upload several roles</p>
+        <p className="mt-1 text-sm text-[var(--muted)]">JSON array of {"{ jd, company_url, days }"}</p>
         <input
-          className="mt-2 block"
+          className="mt-3 block w-full text-sm"
           type="file"
           accept="application/json"
           onChange={(e) => {
@@ -110,7 +113,7 @@ export default function NewKitPage() {
             if (f) onFile(f);
           }}
         />
-      </label>
+      </div>
     </Shell>
   );
 }

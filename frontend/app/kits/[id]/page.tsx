@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Shell } from "@/components/Shell";
+import { Shell, statusBadge } from "@/components/Shell";
 import { api, type Kit, type KitRecord, type Question } from "@/lib/api";
 
 const CATS = ["technical", "behavioural", "system-design", "company-fit"] as const;
@@ -63,23 +63,25 @@ export default function KitPage() {
     }
   }
 
-  if (!rec) return <div className="p-8">Loading kit…</div>;
+  if (!rec) {
+    return <div className="flex min-h-dvh items-center justify-center text-[var(--muted)]">Loading kit…</div>;
+  }
 
   const running = rec.status === "queued" || rec.status === "researching" || rec.status === "generating";
 
   return (
     <Shell email={email}>
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-widest text-primary">{rec.status}</p>
-          <h1 className="text-3xl font-extrabold">{rec.kit?.role.title || "Generating kit"}</h1>
-          <p className="text-slate-600">{rec.input.company_url}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {statusBadge(rec.status)}
+            <span className="text-sm text-[var(--muted)]">{rec.input.days} day plan</span>
+          </div>
+          <h1 className="font-display mt-2 text-4xl">{rec.kit?.role.title || "Generating kit"}</h1>
+          <p className="mt-1 text-[var(--muted)]">{rec.input.company_url}</p>
         </div>
         {rec.kit ? (
-          <Link
-            href={`/kits/${id}/practice`}
-            className="min-h-11 rounded-md bg-primary px-4 py-2 font-bold text-white"
-          >
+          <Link href={`/kits/${id}/practice`} className="btn btn-accent">
             Practice
           </Link>
         ) : null}
@@ -87,31 +89,29 @@ export default function KitPage() {
 
       {running ? <Progress steps={rec.steps} /> : null}
       {rec.status === "failed" ? (
-        <p className="mt-4 rounded-md border-2 border-red-300 bg-red-50 p-4 text-red-800" role="alert">
+        <p className="mt-5 rounded-[var(--radius)] bg-[var(--danger-soft)] p-4 text-[var(--danger)]" role="alert">
           {rec.error?.message || "Generation failed. Create a new kit and try again."}
         </p>
       ) : null}
-      {error ? <p className="mt-3 text-red-600">{error}</p> : null}
+      {error ? <p className="mt-3 text-sm text-[var(--danger)]">{error}</p> : null}
 
       {rec.kit ? (
         <>
-          <div className="mt-6 flex flex-wrap gap-2" role="tablist">
+          <div className="mt-8 flex flex-wrap gap-1.5 rounded-full border border-[var(--line)] bg-[var(--panel)] p-1.5" role="tablist">
             {(["brief", "role", "questions", "cards", "schedule"] as const).map((t) => (
               <button
                 key={t}
                 type="button"
                 role="tab"
                 aria-selected={tab === t}
-                className={`min-h-11 cursor-pointer rounded-md border-2 px-3 font-semibold capitalize ${
-                  tab === t ? "border-primary bg-muted" : "border-border bg-card"
-                }`}
+                className="tab"
                 onClick={() => setTab(t)}
               >
                 {t}
               </button>
             ))}
           </div>
-          <div className="mt-4">
+          <div className="mt-5">
             {tab === "brief" ? (
               <Brief
                 kit={rec.kit}
@@ -131,7 +131,7 @@ export default function KitPage() {
           </div>
         </>
       ) : !running && rec.status !== "failed" ? (
-        <p className="mt-8 text-slate-600">Nothing generated yet.</p>
+        <p className="mt-8 text-[var(--muted)]">Nothing generated yet.</p>
       ) : null}
     </Shell>
   );
@@ -144,13 +144,14 @@ function Progress({ steps }: { steps: KitRecord["steps"] }) {
     return [...map.values()];
   }, [steps]);
   return (
-    <ol className="mt-6 space-y-2 rounded-lg border-2 border-border bg-card p-4">
-      {latest.length === 0 ? <li>Queued… fetching and generating.</li> : null}
+    <ol className="noise-dark mt-6 space-y-2.5 rounded-[var(--radius)] p-5">
+      <li className="eyebrow !text-[var(--dark-muted)]">Live generation</li>
+      {latest.length === 0 ? <li className="text-sm text-[var(--dark-muted)]">Queued… fetching and generating.</li> : null}
       {latest.map((s) => (
-        <li key={s.name} className="flex flex-wrap gap-2 text-sm">
-          <strong className="capitalize">{s.name.replaceAll("_", " ")}</strong>
-          <span className="text-primary">{s.status}</span>
-          {s.detail ? <span className="text-slate-600">{s.detail}</span> : null}
+        <li key={s.name} className="flex flex-wrap items-baseline gap-2 border-t border-white/10 pt-2.5 text-sm first:border-0 first:pt-0">
+          <strong className="capitalize text-[var(--dark-fg)]">{s.name.replaceAll("_", " ")}</strong>
+          <span className="text-[var(--accent)]">{s.status}</span>
+          {s.detail ? <span className="text-[var(--dark-muted)]">{s.detail}</span> : null}
         </li>
       ))}
     </ol>
@@ -171,73 +172,65 @@ function Brief({
   const [summary, setSummary] = useState(kit.company_brief.summary);
   const [what, setWhat] = useState(kit.company_brief.what_they_do);
   return (
-    <div className="space-y-3 rounded-lg border-2 border-border bg-card p-4">
+    <div className="panel space-y-4 p-5">
       <label className="block text-sm font-semibold">
         Summary
-        <textarea
-          className="mt-1 min-h-28 w-full border-2 border-border px-3 py-2"
-          value={summary}
-          onChange={(e) => setSummary(e.target.value)}
-        />
+        <textarea className="field" value={summary} onChange={(e) => setSummary(e.target.value)} />
       </label>
       <label className="block text-sm font-semibold">
         What they do
-        <textarea
-          className="mt-1 min-h-28 w-full border-2 border-border px-3 py-2"
-          value={what}
-          onChange={(e) => setWhat(e.target.value)}
-        />
+        <textarea className="field" value={what} onChange={(e) => setWhat(e.target.value)} />
       </label>
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          className="min-h-11 cursor-pointer rounded-md bg-primary px-4 font-bold text-white"
+          className="btn btn-solid"
           onClick={() =>
             onSave({ ...kit, company_brief: { ...kit.company_brief, summary, what_they_do: what } })
           }
         >
           Save brief
         </button>
-        <button
-          type="button"
-          disabled={busy}
-          className="min-h-11 cursor-pointer rounded-md border-2 border-border px-4 font-semibold disabled:opacity-50"
-          onClick={onRegen}
-        >
+        <button type="button" disabled={busy} className="btn btn-ghost" onClick={onRegen}>
           {busy ? "Regenerating…" : "Regenerate brief"}
         </button>
       </div>
-      <p className="text-xs text-slate-600">Sources: {kit.company_brief.sources.join(", ") || "none"}</p>
+      <p className="text-xs text-[var(--muted)]">Sources: {kit.company_brief.sources.join(", ") || "none"}</p>
     </div>
   );
 }
 
 function Role({ kit }: { kit: Kit }) {
   return (
-    <div className="space-y-3 rounded-lg border-2 border-border bg-card p-4">
-      <p>
-        <strong>Seniority:</strong> {kit.role.seniority || "—"}
-      </p>
-      <p>
-        <strong>Location:</strong> {kit.source.location || "—"}
-      </p>
-      <h2 className="font-bold">Requirements</h2>
+    <div className="panel space-y-4 p-5">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <p>
+          <span className="eyebrow">Seniority</span>
+          <br />
+          <strong>{kit.role.seniority || "—"}</strong>
+        </p>
+        <p>
+          <span className="eyebrow">Location</span>
+          <br />
+          <strong>{kit.source.location || "—"}</strong>
+        </p>
+      </div>
+      <h2 className="font-display text-2xl">Requirements</h2>
       <ul className="space-y-2">
         {kit.role.requirements.map((r) => (
-          <li key={r.id} className="border-2 border-border p-2">
-            <span className="mr-2 font-mono text-xs">{r.id}</span>
-            <span className="mr-2 rounded bg-muted px-1 text-xs uppercase">{r.priority}</span>
+          <li key={r.id} className="rounded-[var(--radius-sm)] border border-[var(--line)] bg-white px-3 py-2.5">
+            <span className="mr-2 font-mono text-xs text-[var(--muted)]">{r.id}</span>
+            <span className={`badge mr-2 ${r.priority === "must" ? "badge-run" : "badge-muted"}`}>{r.priority}</span>
             {r.text}
           </li>
         ))}
       </ul>
       {kit.coverage.uncovered_requirement_ids.length ? (
-        <p className="text-sm text-accent">
-          Uncovered musts after {kit.coverage.passes} pass(es):{" "}
-          {kit.coverage.uncovered_requirement_ids.join(", ")}
+        <p className="text-sm text-[var(--warn)]">
+          Uncovered musts after {kit.coverage.passes} pass(es): {kit.coverage.uncovered_requirement_ids.join(", ")}
         </p>
       ) : (
-        <p className="text-sm text-primary">All must-have requirements have at least one question.</p>
+        <p className="text-sm text-[var(--ok)]">All must-have requirements have at least one question.</p>
       )}
     </div>
   );
@@ -292,44 +285,44 @@ function Questions({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {CATS.map((cat) => {
         const items = kit.questions.filter((q) => q.category === cat);
         return (
-          <section key={cat} className="rounded-lg border-2 border-border bg-card p-4">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-extrabold capitalize">{cat}</h2>
+          <section key={cat} className="panel p-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-display text-2xl capitalize">{cat}</h2>
               <button
                 type="button"
                 disabled={!!busy}
-                className="min-h-11 cursor-pointer text-sm font-semibold underline disabled:opacity-50"
+                className="btn btn-ghost !min-h-10 !text-sm"
                 onClick={() => onRegen(`questions:${cat}`)}
               >
                 {busy === `questions:${cat}` ? "Regenerating…" : "Regenerate category"}
               </button>
             </div>
-            {items.length === 0 ? <p className="text-sm text-slate-600">No questions in this category.</p> : null}
+            {items.length === 0 ? <p className="text-sm text-[var(--muted)]">No questions in this category.</p> : null}
             {items.map((q) => (
-              <article key={q.id} className="mb-3 border-2 border-border p-3">
-                <p className="text-xs text-slate-500">
+              <article key={q.id} className="mb-3 rounded-[var(--radius-sm)] border border-[var(--line)] bg-white p-3 last:mb-0">
+                <p className="text-xs text-[var(--muted)]">
                   {q.id} · covers {q.requirement_ids.join(", ")} ·{" "}
                   {q.origin === "user" || q.edited ? "pinned" : "generated"}
                 </p>
                 <textarea
-                  className="mt-1 min-h-16 w-full border-2 border-border px-2 py-1"
+                  className="field mt-2"
                   value={q.prompt}
                   onChange={(e) => update(q.id, { prompt: e.target.value })}
                 />
                 <textarea
-                  className="mt-1 min-h-16 w-full border-2 border-border px-2 py-1"
+                  className="field mt-2"
                   value={q.answer_outline}
                   onChange={(e) => update(q.id, { answer_outline: e.target.value })}
                 />
-                <div className="mt-2 flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-wrap items-center gap-3">
                   <label className="text-sm">
                     Category
                     <select
-                      className="ml-2 min-h-11 border-2 border-border bg-background"
+                      className="field ml-2 !mt-0 !inline-flex !w-auto !min-h-10"
                       value={q.category}
                       onChange={(e) => update(q.id, { category: e.target.value })}
                     >
@@ -344,20 +337,20 @@ function Questions({
                       type="number"
                       min={1}
                       max={3}
-                      className="ml-2 w-16 min-h-11 border-2 border-border px-2"
+                      className="field ml-2 !mt-0 !inline-flex !w-16 !min-h-10"
                       value={q.difficulty}
                       onChange={(e) => update(q.id, { difficulty: Number(e.target.value) })}
                     />
                   </label>
-                  <button type="button" className="min-h-11 cursor-pointer px-2 underline" onClick={() => move(q.id, -1)}>
+                  <button type="button" className="text-sm font-semibold underline underline-offset-4" onClick={() => move(q.id, -1)}>
                     Up
                   </button>
-                  <button type="button" className="min-h-11 cursor-pointer px-2 underline" onClick={() => move(q.id, 1)}>
+                  <button type="button" className="text-sm font-semibold underline underline-offset-4" onClick={() => move(q.id, 1)}>
                     Down
                   </button>
                   <button
                     type="button"
-                    className="min-h-11 cursor-pointer px-2 text-red-700 underline"
+                    className="text-sm font-semibold text-[var(--danger)] underline underline-offset-4"
                     onClick={() => remove(q.id)}
                   >
                     Delete
@@ -368,11 +361,7 @@ function Questions({
           </section>
         );
       })}
-      <button
-        type="button"
-        className="min-h-11 cursor-pointer rounded-md bg-accent px-4 font-bold text-white"
-        onClick={add}
-      >
+      <button type="button" className="btn btn-accent" onClick={add}>
         Add question
       </button>
     </div>
@@ -406,31 +395,19 @@ function Cards({ kit, onSave }: { kit: Kit; onSave: (k: Kit) => Promise<void> })
   return (
     <div className="space-y-3">
       {kit.flashcards.map((f) => (
-        <div key={f.id} className="rounded-lg border-2 border-border bg-card p-3">
-          <textarea
-            className="min-h-16 w-full border-2 border-border px-2"
-            value={f.front}
-            onChange={(e) => update(f.id, e.target.value, f.back)}
-          />
-          <textarea
-            className="mt-2 min-h-16 w-full border-2 border-border px-2"
-            value={f.back}
-            onChange={(e) => update(f.id, f.front, e.target.value)}
-          />
+        <div key={f.id} className="panel p-4">
+          <textarea className="field" value={f.front} onChange={(e) => update(f.id, e.target.value, f.back)} />
+          <textarea className="field mt-2" value={f.back} onChange={(e) => update(f.id, f.front, e.target.value)} />
           <button
             type="button"
-            className="mt-2 min-h-11 cursor-pointer text-red-700 underline"
+            className="mt-3 text-sm font-semibold text-[var(--danger)] underline underline-offset-4"
             onClick={() => onSave({ ...kit, flashcards: kit.flashcards.filter((x) => x.id !== f.id) })}
           >
             Delete card
           </button>
         </div>
       ))}
-      <button
-        type="button"
-        className="min-h-11 cursor-pointer rounded-md bg-accent px-4 font-bold text-white"
-        onClick={add}
-      >
+      <button type="button" className="btn btn-accent" onClick={add}>
         Add flashcard
       </button>
     </div>
@@ -448,21 +425,15 @@ function Schedule({
 }) {
   return (
     <div className="space-y-3">
-      <button
-        type="button"
-        disabled={busy}
-        className="min-h-11 cursor-pointer rounded-md border-2 border-border px-4 font-semibold"
-        onClick={onRegen}
-      >
+      <button type="button" disabled={busy} className="btn btn-ghost" onClick={onRegen}>
         {busy ? "Rebuilding…" : "Rebuild schedule"}
       </button>
       {kit.schedule.days.map((d) => (
-        <article key={d.day} className="rounded-lg border-2 border-border bg-card p-4">
-          <h3 className="font-extrabold">
-            Day {d.day} · {d.minutes} min
-          </h3>
-          <p>{d.focus}</p>
-          <p className="text-sm text-slate-600">Questions: {d.question_ids.join(", ") || "none"}</p>
+        <article key={d.day} className="panel p-5">
+          <p className="eyebrow">Day {d.day}</p>
+          <h3 className="font-display mt-1 text-2xl">{d.minutes} min</h3>
+          <p className="mt-1">{d.focus}</p>
+          <p className="mt-2 text-sm text-[var(--muted)]">Questions: {d.question_ids.join(", ") || "none"}</p>
         </article>
       ))}
     </div>

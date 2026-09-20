@@ -65,8 +65,8 @@ export async function fetchPage(
       if (ctype && !/text\/html|application\/xhtml|text\/plain/i.test(ctype)) {
         return { skipped: `unexpected content-type ${ctype}` };
       }
-      const buf = Buffer.from(await res.arrayBuffer());
-      if (buf.length > MAX_BYTES) return { skipped: "response too large" };
+      // ponytail: truncate oversized HTML; stream-cap if sites routinely exceed ~1MB
+      const buf = Buffer.from(await res.arrayBuffer()).subarray(0, MAX_BYTES);
       return { html: buf.toString("utf8"), finalUrl: res.url || url };
     } catch (err) {
       last = err instanceof Error ? err.message : "fetch failed";
